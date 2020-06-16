@@ -1,9 +1,15 @@
 #ifndef __AXIS_HPP
 #define __AXIS_HPP
 
-#ifndef __ODRIVE_MAIN_H
-#error "This file should not be included directly. Include odrive_main.h instead."
-#endif
+class Axis;
+
+#include "encoder.hpp"
+#include "sensorless_estimator.hpp"
+#include "controller.hpp"
+#include "trapTraj.hpp"
+#include "endstop.hpp"
+#include "low_level.h"
+#include "utils.hpp"
 
 class Axis : public ODriveIntf::AxisIntf {
 public:
@@ -80,7 +86,7 @@ public:
             Endstop& min_endstop,
             Endstop& max_endstop);
 
-    void setup();
+    bool setup();
     void start_thread();
     void signal_current_meas();
     bool wait_for_current_meas();

@@ -10,6 +10,9 @@
 #include <spi.h>
 #include <tim.h>
 #include <main.h>
+#include "cmsis_os.h"
+
+#include <arm_math.h>
 
 #if HW_VERSION_MAJOR == 3
 #if HW_VERSION_MINOR <= 3
@@ -18,6 +21,26 @@
 #define SHUNT_RESISTANCE (500e-6f)
 #endif
 #endif
+
+
+#ifdef __cplusplus
+#include <Drivers/STM32/stm32_gpio.hpp>
+#include <Drivers/DRV8301/drv8301.hpp>
+
+using TGateDriver = Drv8301;
+using TOpAmp = Drv8301;
+
+#include <MotorControl/motor.hpp>
+
+extern Motor m0;
+extern Motor m1;
+#endif
+
+// Period in [s]
+static const float current_meas_period = CURRENT_MEAS_PERIOD;
+
+// Frequency in [Hz]
+static const int current_meas_hz = CURRENT_MEAS_HZ;
 
 
 typedef struct {
@@ -39,12 +62,6 @@ typedef struct {
     SPI_HandleTypeDef* spi;
 } EncoderHardwareConfig_t;
 typedef struct {
-    TIM_HandleTypeDef* timer;
-    uint16_t control_deadline;
-    float shunt_conductance;
-    size_t inverter_thermistor_adc_ch;
-} MotorHardwareConfig_t;
-typedef struct {
     SPI_HandleTypeDef* spi;
     GPIO_TypeDef* enable_port;
     uint16_t enable_pin;
@@ -56,8 +73,6 @@ typedef struct {
 typedef struct {
     AxisHardwareConfig_t axis_config;
     EncoderHardwareConfig_t encoder_config;
-    MotorHardwareConfig_t motor_config;
-    GateDriverHardwareConfig_t gate_driver_config;
 } BoardHardwareConfig_t;
 
 extern const BoardHardwareConfig_t hw_configs[2];
@@ -89,22 +104,6 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .hallC_pin = M0_ENC_Z_Pin,
         .spi = &hspi3,
     },
-    .motor_config = {
-        .timer = &htim1,
-        .control_deadline = TIM_1_8_PERIOD_CLOCKS,
-        .shunt_conductance = 1.0f / SHUNT_RESISTANCE,  //[S]
-        .inverter_thermistor_adc_ch = 15,
-    },
-    .gate_driver_config = {
-        .spi = &hspi3,
-        // Note: this board has the EN_Gate pin shared!
-        .enable_port = EN_GATE_GPIO_Port,
-        .enable_pin = EN_GATE_Pin,
-        .nCS_port = M0_nCS_GPIO_Port,
-        .nCS_pin = M0_nCS_Pin,
-        .nFAULT_port = nFAULT_GPIO_Port, // the nFAULT pin is shared between both motors
-        .nFAULT_pin = nFAULT_Pin,
-    }
 },{
     //M1
     .axis_config = {
@@ -129,30 +128,8 @@ const BoardHardwareConfig_t hw_configs[2] = { {
         .hallC_pin = M1_ENC_Z_Pin,
         .spi = &hspi3,
     },
-    .motor_config = {
-        .timer = &htim8,
-        .control_deadline = (3 * TIM_1_8_PERIOD_CLOCKS) / 2,
-        .shunt_conductance = 1.0f / SHUNT_RESISTANCE,  //[S]
-#if HW_VERSION_MAJOR == 3 && HW_VERSION_MINOR >= 3
-        .inverter_thermistor_adc_ch = 4,
-#else
-        .inverter_thermistor_adc_ch = 1,
-#endif
-    },
-    .gate_driver_config = {
-        .spi = &hspi3,
-        // Note: this board has the EN_Gate pin shared!
-        .enable_port = EN_GATE_GPIO_Port,
-        .enable_pin = EN_GATE_Pin,
-        .nCS_port = M1_nCS_GPIO_Port,
-        .nCS_pin = M1_nCS_Pin,
-        .nFAULT_port = nFAULT_GPIO_Port, // the nFAULT pin is shared between both motors
-        .nFAULT_pin = nFAULT_Pin,
-    }
 } };
 #endif
-
-
 
 #define I2C_A0_PORT GPIO_3_GPIO_Port
 #define I2C_A0_PIN GPIO_3_Pin

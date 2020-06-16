@@ -14,7 +14,6 @@ ODriveCAN::Config_t can_config;
 Encoder::Config_t encoder_configs[AXIS_COUNT];
 SensorlessEstimator::Config_t sensorless_configs[AXIS_COUNT];
 Controller::Config_t controller_configs[AXIS_COUNT];
-Motor::Config_t motor_configs[AXIS_COUNT];
 Axis::Config_t axis_configs[AXIS_COUNT];
 TrapezoidalTrajectory::Config_t trap_configs[AXIS_COUNT];
 Endstop::Config_t min_endstop_configs[AXIS_COUNT];
@@ -30,7 +29,7 @@ typedef Config<
     Encoder::Config_t[AXIS_COUNT],
     SensorlessEstimator::Config_t[AXIS_COUNT],
     Controller::Config_t[AXIS_COUNT],
-    Motor::Config_t[AXIS_COUNT],
+    Motor::Config_t, Motor::Config_t,
     TrapezoidalTrajectory::Config_t[AXIS_COUNT],
     Endstop::Config_t[AXIS_COUNT],
     Endstop::Config_t[AXIS_COUNT],
@@ -43,7 +42,8 @@ void ODrive::save_configuration(void) {
             &encoder_configs,
             &sensorless_configs,
             &controller_configs,
-            &motor_configs,
+            &m0.config_,
+            &m1.config_,
             &trap_configs,
             &min_endstop_configs,
             &max_endstop_configs,
@@ -63,7 +63,8 @@ extern "C" int load_configuration(void) {
                 &encoder_configs,
                 &sensorless_configs,
                 &controller_configs,
-                &motor_configs,
+                &m0.config_,
+                &m1.config_,
                 &trap_configs,
                 &min_endstop_configs,
                 &max_endstop_configs,
@@ -71,11 +72,12 @@ extern "C" int load_configuration(void) {
         //If loading failed, restore defaults
         odrv.config_ = BoardConfig_t();
         can_config = ODriveCAN::Config_t();
+        m0.config_ = Motor::Config_t();
+        m1.config_ = Motor::Config_t();
         for (size_t i = 0; i < AXIS_COUNT; ++i) {
             encoder_configs[i] = Encoder::Config_t();
             sensorless_configs[i] = SensorlessEstimator::Config_t();
             controller_configs[i] = Controller::Config_t();
-            motor_configs[i] = Motor::Config_t();
             trap_configs[i] = TrapezoidalTrajectory::Config_t();
             axis_configs[i] = Axis::Config_t();
             // Default step/dir pins are different, so we need to explicitly load them
@@ -166,25 +168,24 @@ extern "C" int construct_objects(){
     HAL_GPIO_Init(GPIO_5_GPIO_Port, &GPIO_InitStruct);
 #endif
 
+    m0.reload_config();
+    m1.reload_config();
+
     // Construct all objects.
     odCAN = new ODriveCAN(can_config, &hcan1);
     for (size_t i = 0; i < AXIS_COUNT; ++i) {
         Encoder *encoder = new Encoder(hw_configs[i].encoder_config,
-                                       encoder_configs[i], motor_configs[i]);
+                                       encoder_configs[i], (i ? m1 : m0).config_);
         SensorlessEstimator *sensorless_estimator = new SensorlessEstimator(sensorless_configs[i]);
         Controller *controller = new Controller(controller_configs[i]);
-        Motor *motor = new Motor(hw_configs[i].motor_config,
-                                 hw_configs[i].gate_driver_config,
-                                 motor_configs[i]);
         TrapezoidalTrajectory *trap = new TrapezoidalTrajectory(trap_configs[i]);
         Endstop *min_endstop = new Endstop(min_endstop_configs[i]);
         Endstop *max_endstop = new Endstop(max_endstop_configs[i]);
         axes[i] = new Axis(i, hw_configs[i].axis_config, axis_configs[i],
-                *encoder, *sensorless_estimator, *controller, *motor, *trap, *min_endstop, *max_endstop);
+                *encoder, *sensorless_estimator, *controller, i ? m1 : m0, *trap, *min_endstop, *max_endstop);
 
         controller_configs[i].parent = controller;
         encoder_configs[i].parent = encoder;
-        motor_configs[i].parent = motor;
         min_endstop_configs[i].parent = min_endstop;
         max_endstop_configs[i].parent = max_endstop;
         axis_configs[i].parent = axes[i];
@@ -247,7 +248,9 @@ int odrive_main(void) {
 
     // Setup hardware for all components
     for (size_t i = 0; i < AXIS_COUNT; ++i) {
-        axes[i]->setup();
+        if (!axes[i]->setup()) {
+            for (;;); // TODO: proper error handling
+        }
     }
 
     for(auto& axis : axes){

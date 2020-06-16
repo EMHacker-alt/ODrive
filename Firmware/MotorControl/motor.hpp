@@ -1,11 +1,28 @@
 #ifndef __MOTOR_HPP
 #define __MOTOR_HPP
 
-#ifndef __ODRIVE_MAIN_H
-#error "This file should not be included directly. Include odrive_main.h instead."
-#endif
+class Axis; // declared in axis.hpp
+class Motor;
 
-#include "drv8301.h"
+#include <board.h>
+
+enum TimingLog_t {
+    TIMING_LOG_GENERAL,
+    TIMING_LOG_ADC_CB_I,
+    TIMING_LOG_ADC_CB_DC,
+    TIMING_LOG_MEAS_R,
+    TIMING_LOG_MEAS_L,
+    TIMING_LOG_ENC_CALIB,
+    TIMING_LOG_IDX_SEARCH,
+    TIMING_LOG_FOC_VOLTAGE,
+    TIMING_LOG_FOC_CURRENT,
+    TIMING_LOG_SPI_START,
+    TIMING_LOG_SAMPLE_NOW,
+    TIMING_LOG_SPI_END,
+    TIMING_LOG_NUM_SLOTS
+};
+
+#include <autogen/interfaces.hpp>
 
 class Motor : public ODriveIntf::MotorIntf {
 public:
@@ -74,20 +91,20 @@ public:
         void set_current_control_bandwidth(float value) { current_control_bandwidth = value; parent->update_current_controller_gains(); }
     };
 
-    Motor(const MotorHardwareConfig_t& hw_config,
-         const GateDriverHardwareConfig_t& gate_driver_config,
-         Config_t& config);
+    Motor(TIM_HandleTypeDef* timer,
+         uint16_t control_deadline,
+         float shunt_conductance,
+         size_t inverter_thermistor_adc_ch,
+         TGateDriver& gate_driver,
+         TOpAmp& opamp);
 
     bool arm();
     void disarm();
-    void setup() {
-        DRV8301_setup();
-    }
+    void reload_config();
+    bool setup();
     void reset_current_control();
 
     void update_current_controller_gains();
-    void DRV8301_setup();
-    bool check_DRV_fault();
     void set_error(Error error);
     bool do_checks();
     float get_inverter_temp();
@@ -104,14 +121,20 @@ public:
     bool FOC_current(float Id_des, float Iq_des, float I_phase, float pwm_phase);
     bool update(float current_setpoint, float phase, float phase_vel);
 
-    const MotorHardwareConfig_t& hw_config_;
-    const GateDriverHardwareConfig_t gate_driver_config_;
-    Config_t& config_;
+    // hardware config
+
+    TIM_HandleTypeDef* const timer_;
+    const uint16_t control_deadline_;
+    const float shunt_conductance_;
+    const size_t inverter_thermistor_adc_ch_;
+    TGateDriver& gate_driver_;
+    TOpAmp& opamp_;
+
+    Config_t config_;
     Axis* axis_ = nullptr; // set by Axis constructor
 
 //private:
 
-    DRV8301_Obj gate_driver_; // initialized in constructor
     uint16_t next_timings_[3] = {
         TIM_1_8_PERIOD_CLOCKS / 2,
         TIM_1_8_PERIOD_CLOCKS / 2,
@@ -154,10 +177,6 @@ public:
         .async_phase_vel = 0.0f,
         .async_phase_offset = 0.0f,
     };
-    struct : GateDriverIntf {
-        DrvFault drv_fault = DRV_FAULT_NO_FAULT;
-    } gate_driver_exported_;
-    DRV_SPI_8301_Vars_t gate_driver_regs_; //Local view of DRV registers (initialized by DRV8301_setup)
     float thermal_current_lim_ = 10.0f;  //[A]
     float inverter_temp_ = NAN; // [°C] NaN while the ODrive is initializing.
 };
