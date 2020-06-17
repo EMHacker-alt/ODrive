@@ -18,7 +18,7 @@ Motor::Motor(TIM_HandleTypeDef* timer,
         inverter_thermistor_adc_ch_(inverter_thermistor_adc_ch),
         gate_driver_(gate_driver),
         opamp_(opamp) {
-    reload_config();
+    apply_config();
 }
 
 // @brief Arms the PWM outputs that belong to this motor.
@@ -63,10 +63,11 @@ void Motor::update_current_controller_gains() {
     current_control_.i_gain = plant_pole * current_control_.p_gain;
 }
 
-void Motor::reload_config() {
+bool Motor::apply_config() {
     config_.parent = this;
     is_calibrated_ = config_.pre_calibrated;
     update_current_controller_gains();
+    return true;
 }
 
 // @brief Set up the gate drivers

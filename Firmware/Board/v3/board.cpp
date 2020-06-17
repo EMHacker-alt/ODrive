@@ -43,6 +43,8 @@ Motor m1{
     m1_gate_driver // opamp
 };
 
+Motor* motors[AXIS_COUNT] = {&m0, &m1};
+
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
     HAL_SPI_TxRxCpltCallback(hspi);

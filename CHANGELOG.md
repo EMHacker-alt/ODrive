@@ -42,6 +42,8 @@ Please add a note of your changes below this heading if you make a Pull Request.
 * Reboot on `erase_configuration()`. This avoids unexpected behavior of a subsequent `save_configuration()` call, since the configuration is only erased from NVM, not from RAM.
 * Change `motor.get_inverter_temp()` to use a property which was already being sampled at `motor.inverter_temp`
 * Fixed a numerical issue in the trajectory planner that could cause sudden jumps of the position setpoint
+* Use DMA for DRV8301 setup
+* Make NVM configuration code more dynamic so that the layout doesn't have to be known at compile time
 
 # Releases
 ## [0.4.12] - 2020-05-06
