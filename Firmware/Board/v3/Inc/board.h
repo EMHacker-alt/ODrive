@@ -34,6 +34,9 @@ using TOpAmp = Drv8301;
 
 extern Motor m0;
 extern Motor m1;
+
+#include <Drivers/STM32/stm32_spi_arbiter.hpp>
+extern Stm32SpiArbiter& ext_spi_arbiter;
 #endif
 
 // Period in [s]
