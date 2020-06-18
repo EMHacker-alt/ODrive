@@ -467,24 +467,6 @@ void decode_tim_capture(TIM_HandleTypeDef *htim, TIM_capture_callback_t callback
   }
 }
 
-/**
-* @brief This function handles TIM1 update interrupt and TIM10 global interrupt.
-*/
-void TIM1_UP_TIM10_IRQHandler(void)
-{
-  __HAL_TIM_CLEAR_IT(&htim1, TIM_IT_UPDATE);
-  tim_update_cb(&htim1);
-}
-
-/**
-* @brief This function handles TIM8 update interrupt and TIM13 global interrupt.
-*/
-void TIM8_UP_TIM13_IRQHandler(void)
-{
-  __HAL_TIM_CLEAR_IT(&htim8, TIM_IT_UPDATE);
-  tim_update_cb(&htim8);
-}
-
 
 /**
 * @brief This function handles I2C1 event interrupt.
