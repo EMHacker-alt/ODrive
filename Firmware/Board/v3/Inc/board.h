@@ -5,10 +5,14 @@
 #ifndef __BOARD_CONFIG_H
 #define __BOARD_CONFIG_H
 
+
 // STM specific includes
+#include <stm32f4xx_hal.h>
 #include <gpio.h>
 #include <spi.h>
 #include <tim.h>
+#include <can.h>
+#include <i2c.h>
 #include <main.h>
 #include "cmsis_os.h"
 
